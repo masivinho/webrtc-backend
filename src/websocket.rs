@@ -5,7 +5,7 @@ use warp::http::StatusCode;
 use futures::{SinkExt, StreamExt};
 use warp::ws::{Message, WebSocket};
 use futures::stream::SplitSink;
-use serde_json::{json, Value};
+use serde_json::Value;
 use crate::webrtc::handle_rtc_session;
 
 #[derive(Serialize, Debug)]
@@ -68,16 +68,8 @@ async fn handle_ws_message(msg: Message, sender: &mut SplitSink<WebSocket, Messa
     info!("type {}", signal["type"]);
 
     if signal["type"] == "offer" {
-        let session_answer = handle_rtc_session(session_endpoint, signal["sdp"].as_str().unwrap()).await.unwrap();
-        info!(session_answer);
-        let answer_message: Value = serde_json::from_str(String::from(session_answer).as_str()).unwrap();
-        sender.send(Message::text(answer_message["answer"].to_string())).await.unwrap();
-    } else if signal["type"] == "ice" {
-        handle_datachannel(signal);
+        let session = handle_rtc_session(session_endpoint, signal["sdp"].as_str().unwrap()).await.unwrap();
+        info!(session);
+        sender.send(Message::text(String::from(session).as_str())).await.unwrap();
     }
-
-}
-
-async fn handle_datachannel(signal: Value) {
-
 }
