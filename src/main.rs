@@ -30,10 +30,8 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Env: WEBRTC_ADDR => {:?}", webrtc_addr);
 
-    let public_webrtc_addr = get_env_var("PUBLIC_WEBRTC_ADDR")?;
-
     let webrtc_session_endpoint =
-        webrtc::handle_webrtc_server(webrtc_addr, public_webrtc_addr)
+        webrtc::handle_webrtc_server(webrtc_addr)
             .await
             .expect("could not start webrtc server");
 
