@@ -21,3 +21,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 structopt = "0.3.15"
 futures = { version = "0.3", default-features = false }
 webrtc-unreliable = "0.5.3"
+lazy_static = "1.4.0"
+chrono = "0.4.31"

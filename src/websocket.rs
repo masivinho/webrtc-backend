@@ -6,7 +6,7 @@ use futures::{SinkExt, StreamExt};
 use warp::ws::{Message, WebSocket};
 use futures::stream::SplitSink;
 use serde_json::Value;
-use crate::webrtc::handle_rtc_session;
+use crate::{webrtc::handle_rtc_session, Pings};
 
 #[derive(Serialize, Debug)]
 struct ErrorResult {
@@ -36,7 +36,7 @@ pub async fn handle_rejection(err: warp::reject::Rejection) -> std::result::Resu
     Ok(warp::reply::with_status(json, code))
 }
 
-pub async fn handle_ws_client(websocket: warp::ws::WebSocket, session_endpoint: webrtc_unreliable::SessionEndpoint) {
+pub async fn handle_ws_client(websocket: warp::ws::WebSocket, session_endpoint: webrtc_unreliable::SessionEndpoint, pings: Pings) {
 
     info!("client connected");
     
@@ -71,5 +71,7 @@ async fn handle_ws_message(msg: Message, sender: &mut SplitSink<WebSocket, Messa
         let session = handle_rtc_session(session_endpoint, signal["sdp"].as_str().unwrap()).await.unwrap();
         info!(session);
         sender.send(Message::text(String::from(session).as_str())).await.unwrap();
+    } else if signal["type"] == "result" {
+        info!("{}", signal);
     }
 }

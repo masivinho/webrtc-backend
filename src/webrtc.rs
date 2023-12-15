@@ -1,15 +1,14 @@
 use anyhow::Context;
 use tracing::{info, warn};
 use webrtc_unreliable::{Server as RtcServer, SessionEndpoint};
+use serde_json::Value;
+use chrono::Utc;
 
-pub async fn handle_webrtc_server(webrtc_addr: std::net::SocketAddr) -> anyhow::Result<SessionEndpoint> {
+use crate::{Pings, Ping};
 
-    let webrtc_listen_addr = std::net::SocketAddr::new(
-        std::net::Ipv4Addr::UNSPECIFIED.into(),
-        webrtc_addr.port(),
-    );
+pub async fn handle_webrtc_server(webrtc_addr: std::net::SocketAddr, pings: Pings) -> anyhow::Result<SessionEndpoint> {
 
-    let mut rtc_server = RtcServer::new(webrtc_listen_addr, webrtc_addr)
+    let mut rtc_server = RtcServer::new(webrtc_addr, webrtc_addr)
         .await
         .context("could not start RTC server")?;
 
@@ -35,11 +34,25 @@ pub async fn handle_webrtc_server(webrtc_addr: std::net::SocketAddr) -> anyhow::
                 Err(_) => continue,
             };
 
-            info!("{:?} | data: {}", received.unwrap(), data);
+            let ping_data: Value = serde_json::from_str(data).unwrap();
+
+            info!("{}", ping_data);
 
             if let Some((message_type, remote_addr)) = received {
+
+                let ping = Ping {
+                    index: ping_data["i"].as_number().unwrap().as_i64().unwrap(),
+                    time: Utc::now().timestamp_millis()
+                };
+
+                handle_ping(
+                    remote_addr.to_string(),
+                    ping_data,
+                    pings.clone()
+                ).await;
+
                 if let Err(err) = rtc_server
-                    .send(&message_buf, message_type, &remote_addr)
+                    .send(serde_json::to_string(&ping).unwrap().as_bytes(), message_type, &remote_addr)
                     .await
                 {
                     warn!("could not send message to {}: {:?}", remote_addr, err);
@@ -63,4 +76,41 @@ pub async fn handle_rtc_session(rtc_session_endpoint: SessionEndpoint, data: &st
         >(data.as_bytes().to_vec())))
         .await
         .map_err(|e| e.to_string())?)
+}
+
+pub async fn handle_ping(address: String, data: Value, pings: Pings) {
+
+    let ping = pings.read().await.get(&address).cloned();
+    match ping {
+        Some(_) => {
+            handle_ping_push(address, data, pings).await;
+        },
+        None => {
+
+            pings.write().await.insert(
+                address,
+                vec![
+                    Ping {
+                        index: data["i"].as_number().unwrap().as_i64().unwrap(),
+                        time: Utc::now().timestamp_millis()
+                    }
+                ]
+            );
+
+        },
+    }
+
+}
+
+pub async fn handle_ping_push(address: String, data: Value, pings: Pings) {
+    let mut pings_write = pings.write().await;
+    if let Some(client_pings) = pings_write.get_mut(&address) {
+
+        let ping = Ping {
+            index: data["i"].as_number().unwrap().as_i64().unwrap(),
+            time: Utc::now().timestamp_millis()
+        };
+
+        client_pings.push(ping);
+    }
 }

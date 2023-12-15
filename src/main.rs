@@ -2,9 +2,22 @@ use anyhow::Context;
 use tracing::info;
 use warp::Filter;
 use structopt::StructOpt;
+use std::collections::HashMap;
+use std::convert::Infallible;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use serde::Serialize;
 
 mod websocket;
 mod webrtc;
+
+type Pings = Arc<RwLock<HashMap<String, Vec<Ping>>>>;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Ping {
+    pub index: i64,
+    pub time: i64,
+}
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "webrtc-backend")]
@@ -30,23 +43,25 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Env: WEBRTC_ADDR => {:?}", webrtc_addr);
 
+    let pings: Pings = Arc::new(RwLock::new(HashMap::new()));
+
     let webrtc_session_endpoint =
-        webrtc::handle_webrtc_server(webrtc_addr)
+        webrtc::handle_webrtc_server(webrtc_addr, pings.clone())
             .await
             .expect("could not start webrtc server");
-
-    //SessionManager::instance(webrtc_session_endpoint).get_session_endpoint();
 
     let session_endpoint = warp::any().map(move || webrtc_session_endpoint.clone());
 
     let health_route = warp::path("health").map(|| format!("Server OK"));
 
+    let w_pings = with_pings(pings.clone());
+
     let ws = warp::path("ws")
         .and(warp::ws())
         .and(session_endpoint)
-        .map(|ws: warp::ws::Ws, session_endpoint| {
-            ws.on_upgrade(move |socket| websocket::handle_ws_client(socket, session_endpoint))
-            //ws.on_upgrade(websocket::handle_ws_client)
+        .and(w_pings)
+        .map(|ws: warp::ws::Ws, session_endpoint, w_pings| {
+            ws.on_upgrade(move |socket| websocket::handle_ws_client(socket, session_endpoint, w_pings))
         });
 
     let routes = health_route
@@ -57,4 +72,8 @@ async fn main() -> anyhow::Result<()> {
     warp::serve(routes).run(([127, 0, 0, 1], opt.port)).await;
 
     Ok(())
+}
+
+fn with_pings(pings: Pings) -> impl Filter<Extract = (Pings,), Error = Infallible> + Clone {
+    warp::any().map(move || pings.clone())
 }
