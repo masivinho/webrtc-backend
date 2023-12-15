@@ -64,14 +64,20 @@ async fn handle_ws_message(msg: Message, sender: &mut SplitSink<WebSocket, Messa
         return;
     };
 
-    let signal: Value = serde_json::from_str(msg).unwrap();
+    let signal: Value = match serde_json::from_str(msg){
+        Result::Ok(val) => {val},
+        Result::Err(_) => {
+            serde_json::Value::Null
+        }
+    };
+
     info!("type {}", signal["type"]);
 
     if signal["type"] == "offer" {
         let session = handle_rtc_session(session_endpoint, signal["sdp"].as_str().unwrap()).await.unwrap();
         info!(session);
         sender.send(Message::text(String::from(session).as_str())).await.unwrap();
-    } else if signal["type"] == "result" {
+    } else if signal["type"] == "done" {
         info!("{}", signal);
     }
 }
