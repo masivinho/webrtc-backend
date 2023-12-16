@@ -36,8 +36,6 @@ pub async fn handle_webrtc_server(webrtc_addr: std::net::SocketAddr, pings: Ping
 
             let ping_data: Value = serde_json::from_str(data).unwrap();
 
-            info!("{}", ping_data);
-
             if let Some((message_type, remote_addr)) = received {
 
                 let ping = Ping {
@@ -80,37 +78,21 @@ pub async fn handle_rtc_session(rtc_session_endpoint: SessionEndpoint, data: &st
 
 pub async fn handle_ping(address: String, data: Value, pings: Pings) {
 
-    let ping = pings.read().await.get(&address).cloned();
+    let port = address.split(":").nth(1).unwrap().to_string();
+
+    let ping = pings.read().await.get(&port).cloned();
     match ping {
         Some(_) => {
-            handle_ping_push(address, data, pings).await;
+            handle_ping_push(port, data, pings).await;
         },
-        None => {
-
-            pings.write().await.insert(
-                address,
-                vec![
-                    Ping {
-                        index: data["i"].as_number().unwrap().as_i64().unwrap(),
-                        time: Utc::now().timestamp_millis()
-                    }
-                ]
-            );
-
-        },
+        None => { },
     }
 
 }
 
-pub async fn handle_ping_push(address: String, data: Value, pings: Pings) {
+pub async fn handle_ping_push(port: String, data: Value, pings: Pings) {
     let mut pings_write = pings.write().await;
-    if let Some(client_pings) = pings_write.get_mut(&address) {
-
-        let ping = Ping {
-            index: data["i"].as_number().unwrap().as_i64().unwrap(),
-            time: Utc::now().timestamp_millis()
-        };
-
-        client_pings.push(ping);
+    if let Some(client) = pings_write.get_mut(&port) {
+        client.pings.push(data["i"].as_number().unwrap().as_i64().unwrap());
     }
 }

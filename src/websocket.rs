@@ -1,16 +1,26 @@
 use std::convert::Infallible;
-use tracing::{info, error};
+use tracing::{info, error, warn};
 use serde::Serialize;
 use warp::http::StatusCode;
 use futures::{SinkExt, StreamExt};
 use warp::ws::{Message, WebSocket};
 use futures::stream::SplitSink;
 use serde_json::Value;
-use crate::{webrtc::handle_rtc_session, Pings};
+use crate::{webrtc::handle_rtc_session, Pings, Client, NEXT_USER_ID};
+use std::sync::atomic::Ordering;
 
 #[derive(Serialize, Debug)]
 struct ErrorResult {
     detail: String,
+}
+
+#[derive(Serialize)]
+struct PingResult {
+    #[serde(rename = "type")]
+    result_type: String,
+    list: Vec<i64>,
+    #[serde(rename = "receivedCount")]
+    received_count: usize
 }
 
 pub async fn handle_rejection(err: warp::reject::Rejection) -> std::result::Result<impl warp::reply::Reply, Infallible> {
@@ -36,9 +46,15 @@ pub async fn handle_rejection(err: warp::reject::Rejection) -> std::result::Resu
     Ok(warp::reply::with_status(json, code))
 }
 
-pub async fn handle_ws_client(websocket: warp::ws::WebSocket, session_endpoint: webrtc_unreliable::SessionEndpoint, pings: Pings) {
+pub async fn handle_ws_client(
+    websocket: warp::ws::WebSocket,
+    session_endpoint: webrtc_unreliable::SessionEndpoint,
+    pings: Pings
+) {
 
     info!("client connected");
+
+    let client_id = NEXT_USER_ID.fetch_add(1, Ordering::Relaxed);
     
     let (mut sender, mut receiver) = websocket.split();
 
@@ -51,13 +67,20 @@ pub async fn handle_ws_client(websocket: warp::ws::WebSocket, session_endpoint: 
             }
         };
 
-        handle_ws_message(message, &mut sender, session_endpoint.clone()).await;
+        handle_ws_message(message, &mut sender, client_id, session_endpoint.clone(), pings.clone()).await;
     }
 
     info!("client disconnected");
 }
 
-async fn handle_ws_message(msg: Message, sender: &mut SplitSink<WebSocket, Message>, session_endpoint: webrtc_unreliable::SessionEndpoint) {
+async fn handle_ws_message(
+    msg: Message,
+    sender: &mut SplitSink<WebSocket, Message>,
+    client_id: usize,
+    session_endpoint: webrtc_unreliable::SessionEndpoint,
+    pings: Pings
+) {
+        
     let msg = if let Ok(s) = msg.to_str() {
         s
     } else {
@@ -71,13 +94,46 @@ async fn handle_ws_message(msg: Message, sender: &mut SplitSink<WebSocket, Messa
         }
     };
 
-    info!("type {}", signal["type"]);
-
     if signal["type"] == "offer" {
         let session = handle_rtc_session(session_endpoint, signal["sdp"].as_str().unwrap()).await.unwrap();
         info!(session);
         sender.send(Message::text(String::from(session).as_str())).await.unwrap();
-    } else if signal["type"] == "done" {
+
+    } else if signal["type"] == "ice" {
         info!("{}", signal);
+        
+        let candidate: String = signal["ice"]["candidate"].to_string();
+        let port = candidate.split(" ").nth(5).unwrap();
+
+        handle_client_register(client_id, port.to_string(), pings).await;
+
+    } else if signal["type"] == "done" {
+
+        let pings_read = pings.read().await;
+        let selected_ports: Vec<_> = pings_read.values().filter(|client| client.id == client_id).collect();
+
+        let client: Client = selected_ports[0].clone();
+
+        let ping_result = PingResult {
+            result_type: "results".to_string(),
+            list: client.pings.clone(),
+            received_count: client.pings.len()
+        };
+
+        sender.send(Message::text(serde_json::to_string(&ping_result).unwrap())).await.unwrap();
+
+        if let Err(err) = sender.close().await {
+            warn!("could not disconnect user: {:?}", err);
+        }
     }
+}
+
+pub async fn handle_client_register(client_id: usize, port: String, pings: Pings) {
+    pings.write().await.insert(
+        port,
+        Client {
+            id: client_id,
+            pings: vec![]
+        }
+    );
 }

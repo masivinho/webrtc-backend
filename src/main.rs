@@ -4,14 +4,21 @@ use warp::Filter;
 use structopt::StructOpt;
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::sync::Arc;
+use std::sync::{atomic::AtomicUsize, Arc};
 use tokio::sync::RwLock;
 use serde::Serialize;
 
 mod websocket;
 mod webrtc;
 
-type Pings = Arc<RwLock<HashMap<String, Vec<Ping>>>>;
+static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
+type Pings = Arc<RwLock<HashMap<String, Client>>>;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Client {
+    pub id: usize,
+    pub pings: Vec<i64>
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Ping {
