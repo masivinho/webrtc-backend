@@ -48,12 +48,12 @@ async fn main() -> anyhow::Result<()> {
         .parse()
         .context("failed to parse WEBRTC_ADDR")?;
 
-    let public_addr: std::net::SocketAddr = get_env_var("PUBLIC_ADDR")?
+    let public_addr: std::net::SocketAddr = get_env_var("PUBLIC_WEBRTC_ADDR")?
         .parse()
-        .context("failed to parse PUBLIC_ADDR")?;
+        .context("failed to parse PUBLIC_WEBRTC_ADDR")?;
 
     info!("Env: WEBRTC_ADDR => {:?}", webrtc_addr);
-    info!("Env: PUBLIC_ADDR => {:?}", public_addr);
+    info!("Env: PUBLIC_WEBRTC_ADDR => {:?}", public_addr);
 
     let pings: Pings = Arc::new(RwLock::new(HashMap::new()));
 
