@@ -6,9 +6,9 @@ use chrono::Utc;
 
 use crate::{Pings, Ping};
 
-pub async fn handle_webrtc_server(webrtc_addr: std::net::SocketAddr, pings: Pings) -> anyhow::Result<SessionEndpoint> {
+pub async fn handle_webrtc_server(webrtc_addr: std::net::SocketAddr, public_addr: std::net::SocketAddr, pings: Pings) -> anyhow::Result<SessionEndpoint> {
 
-    let mut rtc_server = RtcServer::new(webrtc_addr, webrtc_addr)
+    let mut rtc_server = RtcServer::new(webrtc_addr, public_addr)
         .await
         .context("could not start RTC server")?;
 
