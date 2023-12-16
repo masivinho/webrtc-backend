@@ -70,6 +70,9 @@ pub async fn handle_ws_client(
         handle_ws_message(message, &mut sender, client_id, session_endpoint.clone(), pings.clone()).await;
     }
 
+    let port = get_client_port(client_id, pings.clone()).await;
+    hadle_client_remove(port, pings.clone()).await;
+
     info!("client disconnected");
 }
 
@@ -112,6 +115,10 @@ async fn handle_ws_message(
         let pings_read = pings.read().await;
         let selected_ports: Vec<_> = pings_read.values().filter(|client| client.id == client_id).collect();
 
+        if selected_ports.len() < 1 {
+            return;
+        }
+
         let client: Client = selected_ports[0].clone();
 
         let ping_result = PingResult {
@@ -136,4 +143,23 @@ pub async fn handle_client_register(client_id: usize, port: String, pings: Pings
             pings: vec![]
         }
     );
+}
+
+pub async fn get_client_port(client_id: usize, pings: Pings) -> String {
+    let pings_read = pings.read().await;
+    let selected_ports: Vec<_> = pings_read.iter().filter(|(_key, client)| client.id == client_id).map(|(key, value)| {
+        return (key.clone(), value.clone());
+    }).collect();
+
+    if selected_ports.len() < 1 {
+        return "not found".to_string()
+    }
+
+    let (key, _value) = selected_ports[0].clone(); {
+        return key
+    };
+}
+
+pub async fn hadle_client_remove(port: String, pings: Pings) {
+    pings.write().await.remove(&port);
 }
