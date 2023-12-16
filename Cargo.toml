@@ -2,9 +2,16 @@
 name = "webrtc-backend"
 version = "0.0.1"
 edition = "2021"
+authors = ["masivinho <contact@masivo.cc>"]
+readme = "README.md"
+license = "BSD"
 
 [profile.release]
-debug = true
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = 'abort'
+strip = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
