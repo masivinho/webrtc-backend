@@ -81,7 +81,7 @@ async fn main() -> anyhow::Result<()> {
         .with(warp::cors().allow_any_origin())
         .recover(websocket::handle_rejection);
 
-    warp::serve(routes).run(([127, 0, 0, 1], opt.port)).await;
+    warp::serve(routes).run(([0, 0, 0, 0], opt.port)).await;
 
     Ok(())
 }
