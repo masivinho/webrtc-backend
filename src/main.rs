@@ -1,7 +1,6 @@
 use anyhow::Context;
 use tracing::info;
 use warp::Filter;
-use structopt::StructOpt;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::{atomic::AtomicUsize, Arc};
@@ -26,13 +25,6 @@ pub struct Ping {
     pub time: i64,
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(name = "webrtc-backend")]
-struct Opts {
-    #[structopt(short, long, default_value = "8000")]
-    port: u16,
-}
-
 fn get_env_var(name: &str) -> anyhow::Result<String> {
     std::env::var(name).with_context(|| format!("env variable '{}' not set", name))
 }
@@ -40,9 +32,12 @@ fn get_env_var(name: &str) -> anyhow::Result<String> {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
-    let opt = Opts::from_args();
 
     info!(concat!("Repo git hash: ", env!("GIT_HASH")));
+
+    let websocket_port: u16 = get_env_var("WEBSOCKET_PORT")?
+        .parse()
+        .context("failed to parse WEBSOCKET_PORT")?;
 
     let webrtc_addr: std::net::SocketAddr = get_env_var("WEBRTC_ADDR")?
         .parse()
@@ -81,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
         .with(warp::cors().allow_any_origin())
         .recover(websocket::handle_rejection);
 
-    warp::serve(routes).run(([0, 0, 0, 0], opt.port)).await;
+    warp::serve(routes).run(([0, 0, 0, 0], websocket_port)).await;
 
     Ok(())
 }

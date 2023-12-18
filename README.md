@@ -3,7 +3,7 @@
 In a terminal: 
 
 ```
-$ PUBLIC_WEBRTC_ADDR=127.0.0.1:8888 WEBRTC_ADDR=127.0.0.1:8888 RUST_LOG=info cargo run
+$ WEBSOCKET_PORT=8000 PUBLIC_WEBRTC_ADDR=127.0.0.1:8888 WEBRTC_ADDR=127.0.0.1:8888 RUST_LOG=info cargo run
 ```
 
 Please note that if you are using Firefox, Firefox does not accept WebRTC
@@ -17,24 +17,10 @@ $ bash scripts/build
 
 You can find your binary on `target/release`
 
-## Docker
-
-build the docker image
+## Docker Compose
 
 ```
-$ docker build -t webrtc_backend:latest .
-```
-
-create a new container
-
-```
-$ docker create -p42069:42069 -p8888:8888 --name webrtc_server webrtc_backend
-```
-
-run container
-
-```
-$ docker start webrtc_server
+$ docker compose up -d
 ```
 
 ## License

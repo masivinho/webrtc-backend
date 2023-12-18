@@ -19,6 +19,5 @@ WORKDIR /app
 
 COPY --from=builder /usr/src/app/webrtc-backend /app/webrtc-backend
 COPY ./configs/production.env /app/production.env
-EXPOSE 42069 8888
 
-CMD /bin/bash -c "source ./production.env && ./webrtc-backend --port 42069"
+CMD /bin/bash -c "./webrtc-backend"

@@ -1,0 +1,12 @@
+version: '3.9'
+
+services:
+  app:
+    container_name: webrtc_server
+    build: .
+    network_mode: "host"
+    environment:
+      - WEBSOCKET_PORT=8000
+      - WEBRTC_ADDR=0.0.0.0:8888
+      - PUBLIC_WEBRTC_ADDR=192.168.75.55:8888
+      - RUST_LOG=info
