@@ -18,6 +18,5 @@ USER app
 WORKDIR /app
 
 COPY --from=builder /usr/src/app/webrtc-backend /app/webrtc-backend
-COPY ./configs/production.env /app/production.env
 
 CMD /bin/bash -c "./webrtc-backend"
