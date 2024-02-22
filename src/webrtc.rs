@@ -37,15 +37,9 @@ pub async fn handle_webrtc_server(webrtc_addr: std::net::SocketAddr, public_addr
 
             if let Some((message_type, remote_addr)) = received {
 
-                let timestamp = if let Some(num_str) = ping_data["time"].as_str() {
-                    num_str.parse::<u128>().unwrap_or(0)
-                } else {
-                    0
-                };
-
                 let ping = Ping {
                     index: ping_data["i"].as_number().unwrap().as_i64().unwrap(),
-                    time: timestamp,
+                    time: ping_data["time"].as_u64().unwrap(),
                 };
 
                 handle_ping(

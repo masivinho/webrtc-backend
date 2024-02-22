@@ -22,7 +22,7 @@ pub struct Client {
 #[derive(Debug, Clone, Serialize)]
 pub struct Ping {
     pub index: i64,
-    pub time: u128,
+    pub time: u64,
 }
 
 fn get_env_var(name: &str) -> anyhow::Result<String> {
